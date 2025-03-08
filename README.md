@@ -1,3 +1,5 @@
+David Asborth - chapter 2 => the sql way !
+
 Cet exercice est tiré du bouquin de David Asboth : The well grounded data analyst. 
  Lien vers son Github : https://github.com/davidasboth/the-well-grounded-data-analyst
  Dans le chapitre 2, on dispose d'un dataset avec des adresses (~100k)
