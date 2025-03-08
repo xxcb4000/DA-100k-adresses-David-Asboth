@@ -12,7 +12,7 @@ Cet exercice est tiré du bouquin de David Asboth : The well grounded data analy
  Moi, je vais utiliser SQL car c'est le langage que je pratique pour le moment. 
  D'autres githubs arrivent avec du py. 
  Mes outils : je fais tourner sql server sur un docker et j'utilise VSC comme client (je 
- teste VSC pour faire du SQL suite à l'annonce de MS de fermer Azure Database Studio). 
+ teste VSC pour faire du SQL). 
  J'ai mis en forme le fichier avec BBEdit (que je préfère à notepad++), j'ai chargé 
  le fichier sur le docker qui fait tourner sql server, puis j'ai fait un bulk insert pour créer 
  la db Prowidget Systems (le nom de la company) et la table (dbo.companies)  avec laquelle je vais travailler. 
