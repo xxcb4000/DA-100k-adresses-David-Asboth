@@ -1,10 +1,41 @@
+/*
+Cet exercice est tiré du bouquin de David Asboth : The well grounded data analyst. 
+Lien vers son Github : https://github.com/davidasboth/the-well-grounded-data-analyst
+dans le chapitre 2, on dispose d'un dataset avec des adresses (~100k)
+le client pose deux questions : 
+- est-ce que la majorité de nos clients sont à Londres ?
+- est-ce qu'il y a des endroits où on sous performe ?
+Le fichier fourni est un fichier plat addresses.csv. 
+L'auteur utilise Jupyter Notebook pour examiner le dataset. 
+
+Moi, je vais utiliser SQL car c'est le langage que je pratique pour le moment. 
+D'autres githubs arrivent avec du py. 
+Mes outils : je fais tourner sql server sur un docker et j'utilise VSC comme client (je 
+teste VSC pour faire du SQL suite à l'annonce de MS de fermer Azure Database Studio). 
+J'ai mis en forme le fichier avec BBEdit (que je préfère à notepad++), j'ai chargé 
+le fichier sur le docker qui fait tourner sql server, puis j'ai fait un bulk insert pour créer 
+la db Prowidget Systems (le nom de la company) et la table (dbo.companies)  avec laquelle je vais travailler. 
+En amont, j'ai aussi un peu exploré le fichier avec SSMS et DBeaver. J'ai également 
+préparer un docker avec mysql et un avec postgresql pour tester ces outils dans une 
+phase ultérieure. 
+
+La db est prête. On commence notre enquête !
+*/
+
+
+
+-- on commence par une visualisation pour vérifier que la table est bien formatée. 
+-- ça l'air d'être le cas. 
 SELECT *
 FROM dbo.companies
 
+-- la table a une colonne dépense, donc je jette un oeil à la somme des dépenses
 SELECT COUNT(company_depense)
 FROM dbo.companies
 
-
+-- on voit que les adresses sont composées de plusieurs champs
+-- tous les champs n'ont pas l'air d'être les mêmes dans chaque adresse 
+-- je propose donc de commencer à compter les champs qui sont séparés par des ','
 SELECT company_adresse, 
     LEN(company_adresse) - LEN(REPLACE(company_adresse, ',', '')) AS nbre_champs_adresse
 FROM dbo.companies
@@ -16,19 +47,35 @@ ADD nbre_champs_adresse INT
 UPDATE dbo.companies 
 SET nbre_champs_adresse = LEN(company_adresse) - LEN(REPLACE(company_adresse, ',', '')) + 1
 
-
-
+-- je vois que le nombre de champs qui composent les adresses varient (3, 4, 5...)
+-- l'auteur avait lui aussi examiné le nombre de champs. 
+-- après, nos chemins divergent. 
 
 SELECT COUNT(*)
 FROM dbo.companies
 WHERE company_adresse LIKE '%LONDON%'
 
--- je pense que le dernier champ est toujours un cp
--- je pense que tous les cp sont faits de deux séries alphanum
--- je pense que le système est hiérarchique 
+/*
+Je pense que le dernier champ est toujours un cp
+Je pense que tous les cp sont faits de deux séries alphanum
+Je pense que le système est hiérarchique 
+Je suis allé vérifier sur le web, et effectivement, le cp au UK 
+ont une structure systématique (source wikipedia) : 
+A9 9AA
+A99 9AA
+A9A 9AA
+AA9 9AA
+AA99 9AA
+AA9A 9AA
+    
+L'auteur a adopté une apporche en termes de noms de villes. 
+Je ne suis pas convaincu. D'autant qu'il se retrouve avec beaucoup d'adresses "others"
+avec cette apporche. 
 
--- => je vais travailler sur la base des cp
--- => je vais mettre mes cp dans une colonne
+=> je vais travailler sur la base des cp
+=> je vais mettre mes cp dans une colonne
+=> je vais vérifier la structure de mes cp... on va avoir quelques surprises... 
+*/
 
 ALTER TABLE dbo.companies
 ADD cp NVARCHAR(12)
@@ -39,11 +86,10 @@ FROM dbo.companies
 SELECT company_id, company_adresse, LEN(REVERSE(SUBSTRING(REVERSE(company_adresse), 1, CHARINDEX(',', REVERSE(company_adresse), 1)-2))) AS code_postal
 FROM dbo.companies
 
-
-
 -- y en a aux Etats-Unis... du coup mon NVARCHAR n'est pas assez long
 -- y en a aux Emirats Arabes Unis => je vais les delete. Y en a 8. et 12 des CAYMAN ISLAND
--- y en a 1 qui a royaume uni comme cp.... pffffff
+-- y en a 1 qui a royaume uni comme cp.... 
+    
 UPDATE dbo.companies
 SET cp = REVERSE(SUBSTRING(REVERSE(company_adresse), 1, CHARINDEX(',', REVERSE(company_adresse), 1)-2))
 
@@ -62,7 +108,6 @@ SELECT *
 FROM dbo.companies
 WHERE company_adresse LIKE '%CAYMAN ISLAND%'
 
-
 SELECT *
 FROM dbo.companies
 WHERE company_adresse LIKE '%KITTS%'
@@ -80,7 +125,6 @@ WHERE company_id LIKE 1101 -- OR 62218 OR 73212
 DELETE FROM dbo.companies
 WHERE LEN(company_adresse) < 20
 
---
 -- ici il me reste des 'cp' trop longs... genre encore des US, des Saint-Vincent les grenadines....  
 -- un vrai cp c'est max 8 suivant la nomenclature UK. 
 
@@ -97,7 +141,7 @@ SELECT *
 FROM dbo.companies
 ORDER BY cp ASC
 
--- ici j'ai encore quelques lignes de merde avec des cp qui cmmencent par des chiffres. 62 lignes. 
+-- ici j'ai encore quelques lignes à nettoyer avec des cp qui commencent par des chiffres. 62 lignes. 
 
 SELECT *
 FROM dbo.companies
@@ -132,6 +176,7 @@ ORDER BY cp ASC
 
 SELECT COUNT(*)
 FROM dbo.companies
+    
 -- il me reste 97813 entrées sur 100.001 entrées => 97,8% OK 
 
 SELECT company_adresse, cp, PATINDEX('%[0-9]%', cp)
@@ -147,6 +192,10 @@ DELETE FROM dbo.companies
 WHERE PATINDEX('%[0-9]%', cp) = 0
 -- 289 lignes affectées
 
+-- ça y est, je n'ai plus que des cp UK ! 
+-- wikipedia me dit que la ou les 2 première(s) lettre(s) représente(nt)
+-- je vais les extraire dans une colonne et puis faire une table d'équivalence avec
+-- le nom des zones
 SELECT cp, SUBSTRING(cp, 1, PATINDEX('%[0-9]%', cp)-1)
 FROM dbo.companies
 
@@ -174,7 +223,7 @@ ADD zone NVARCHAR(30)
 SELECT *
 FROM dbo.companies
 
-
+-- j'ai demandé à Perplexity de me faire une table de conversion
 UPDATE dbo.companies
 SET zone =
        CASE 
@@ -313,16 +362,19 @@ FROM dbo.companies
 GROUP BY zone
 ORDER BY SUM(company_depense) DESC
 
+/*
+Je copie les donénes dans un excel. 
+Je peux sortir un grpahique en histogramme.
+On voit que London est largement plus représentée.
+On voit que Shefield est très représentée : pourquoi ?
 
-
-CREATE TABLE depense_par_zone (
-    zone NVARCHAR(20),
-    depense_tot MONEY,
-    population INT,
-    depense_par_habitant DEC,
-    revenu_median INT
-)
-
+Pour aller plus loin : 
+- ajouter des attributs (colonnes) : population, revenu médian,... ou autre info pertinente pour déterminer 
+si certaines zones sont à privilégier dans la stratégie de développement et sortir des infos
+relatives et plus absolues ;
+- sortir une carte du UK avec les infos ;
+- chnager de granularité en explorant la sjuite des cp ;
+- ...
 
 
 
